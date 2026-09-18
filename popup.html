@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --muted: #6b7280;
+        --line: rgba(128, 128, 128, 0.3);
+        --ad: #dc2626;
+        --ok: #16a34a;
+      }
+      body {
+        width: 300px;
+        margin: 0;
+        padding: 14px;
+        font: 13px/1.4 system-ui, sans-serif;
+      }
+      h1 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+      .sub,
+      small {
+        color: var(--muted);
+      }
+      #host {
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+      #status {
+        margin-top: 8px;
+      }
+      #status::before {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      #status.ad::before {
+        background: var(--ad);
+      }
+      #status.ok::before {
+        background: var(--ok);
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 6px;
+        font: 12px ui-monospace, monospace;
+        resize: vertical;
+      }
+      input[type='checkbox'] {
+        width: 16px;
+        height: 16px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <label class="row">
+      <h1>Ad Mute</h1>
+      <input id="enabled" type="checkbox" />
+    </label>
+
+    <section id="site">
+      <label class="row">
+        <span>
+          <span id="host"></span><br />
+          <span id="kind" class="sub"></span>
+        </span>
+        <input id="siteOn" type="checkbox" />
+      </label>
+      <div id="status"></div>
+      <div id="selectorsBox" hidden>
+        <label>
+          <small>Extra ad selectors — mute while any of these is on screen (one CSS selector per line)</small>
+          <textarea id="selectors" rows="3" spellcheck="false" placeholder=".ad-countdown"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <label class="row">
+        <span>Log detections to the page console</span>
+        <input id="debug" type="checkbox" />
+      </label>
+    </section>
+
+    <script src="sites.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

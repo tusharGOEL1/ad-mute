@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Ad Mute",
+  "version": "0.1.0",
+  "description": "Mutes the tab while a streaming site is playing an ad and unmutes when it ends.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "webRequest", "scripting", "activeTab"],
+  "host_permissions": ["*://*.hotstar.com/*", "*://*.jiohotstar.com/*"],
+  "optional_host_permissions": ["*://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Ad Mute",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.primevideo.com/*",
+        "*://*.amazon.com/gp/video/*",
+        "*://*.amazon.in/gp/video/*",
+        "*://*.amazon.co.uk/gp/video/*",
+        "*://*.amazon.de/gp/video/*",
+        "*://*.amazon.co.jp/gp/video/*",
+        "*://*.amazon.ca/gp/video/*",
+        "*://*.amazon.com.au/gp/video/*",
+        "*://*.hotstar.com/*",
+        "*://*.jiohotstar.com/*",
+        "*://*.youtube.com/*",
+        "*://*.twitch.tv/*"
+      ],
+      "js": ["sites.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
