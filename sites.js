@@ -5,6 +5,14 @@
 //   heuristic  a short visible label like "Ad 1 of 2" / "Skip Ad" sits on top of a video
 //   beacons    the page fired an ad-impression request (detected in background.js)
 //
+// While an ad is on (and skipping is enabled) `skip` says how to get past it:
+//   buttons     CSS for skip buttons to click; a visible "Skip" / "Skip Ad" button
+//               over the video is always clicked
+//   timer       CSS for the ad countdown ("0:23"); the video is seeked forward by
+//               what's left, at most `maxJump` seconds at a time
+//   shortVideo  the ad is its own short <video>; jump it to its end
+// Ads stitched into a live stream can't be skipped, so those just stay muted.
+//
 // When adding a site here, also add its URL to content_scripts.matches in
 // manifest.json (and to host_permissions if it uses beacons).
 (() => {
@@ -18,6 +26,12 @@
         { css: '[class*="atvwebplayersdk-adtimeindicator"]', text: true },
       ],
       heuristic: true,
+      skip: {
+        // The page holds several countdowns; only the one inside the open player is live.
+        timer: '.dv-player-fullscreen [class*="atvwebplayersdk-ad-timer"]',
+        video: '.dv-player-fullscreen video',
+        maxJump: 90, // bigger seeks can crash the Prime player
+      },
     },
     {
       id: 'hotstar',
@@ -26,6 +40,7 @@
       tabUrls: ['*://*.hotstar.com/*', '*://*.jiohotstar.com/*'],
       selectors: [],
       heuristic: true,
+      skip: { shortVideo: true },
       // Live streams have ads stitched into the video, so nothing shows up in
       // the DOM. The player does report each ad though, with the ad's name
       // (which embeds its length, e.g. "..._ipl18HANGOUTEVR20sEng_...").
@@ -48,6 +63,7 @@
       hosts: /(^|\.)youtube\.com$/,
       selectors: [{ css: '.html5-video-player.ad-showing' }, { css: '.html5-video-player.ad-interrupting' }],
       heuristic: false,
+      skip: { buttons: ['.ytp-skip-ad-button', '.ytp-ad-skip-button-modern', '.ytp-ad-skip-button'] },
     },
     {
       id: 'twitch',
@@ -58,7 +74,7 @@
     },
   ];
 
-  const DEFAULT_SETTINGS = { enabled: true, debug: false, sites: {} };
+  const DEFAULT_SETTINGS = { enabled: true, skip: true, debug: false, sites: {} };
 
   const findSite = (hostname) => SITES.find((s) => s.hosts.test(hostname));
 
@@ -79,6 +95,7 @@
       name: site ? site.name : key,
       selectors: [...(site ? site.selectors : []), ...(cfg.selectors || []).map((css) => ({ css }))],
       heuristic: site ? site.heuristic : true,
+      skip: site ? site.skip || {} : { shortVideo: true },
     };
   }
 

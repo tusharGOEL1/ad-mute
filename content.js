@@ -15,16 +15,26 @@
   const AD_PHRASE =
     /\b(skip ads?|ad (will end|ends) in|(video|content|show|movie|programme?|stream) will (resume|play|start|continue|begin)|resum(es?|ing) (in|after))\b/i;
 
+  const SKIP_LABEL = /^skip(\s+(the\s+)?ads?)?$/i;
+  // Pause between skip attempts; hammering the player makes it hang.
+  const SKIP_COOLDOWN_MS = 1000;
+  const SHORT_VIDEO_MAX_S = 120;
+
   let settings = { ...DEFAULT_SETTINGS };
   let beaconUntil = 0;
   let beaconName = '';
   let lastSeen = 0;
   let lastSignal = '';
   let reported = false;
+  let nextSkipAt = 0;
+  let skips = 0;
 
   const log = (...args) => settings.debug && console.log('[ad-mute]', ...args);
 
-  function findAdText() {
+  const isVisible = (el) => el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+
+  // First visible element sitting on top of a video whose own text passes `test`.
+  function findOverVideo(test) {
     const videos = [...document.querySelectorAll('video')]
       .map((v) => v.getBoundingClientRect())
       .filter((r) => r.width > 200 && r.height > 100);
@@ -33,17 +43,18 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node; (node = walker.nextNode()); ) {
       const text = node.nodeValue.trim();
-      if (!text || text.length > 60 || !(AD_LABEL.test(text) || AD_PHRASE.test(text))) continue;
+      if (!text || text.length > 60 || !test(text)) continue;
       const el = node.parentElement;
-      if (!el || /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/.test(el.tagName)) continue;
-      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+      if (!el || /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/.test(el.tagName) || !isVisible(el)) continue;
       const r = el.getBoundingClientRect();
       const x = r.left + r.width / 2;
       const y = r.top + r.height / 2;
-      if (videos.some((v) => x >= v.left && x <= v.right && y >= v.top && y <= v.bottom)) return text;
+      if (videos.some((v) => x >= v.left && x <= v.right && y >= v.top && y <= v.bottom)) return el;
     }
     return null;
   }
+
+  const findAdText = () => findOverVideo((t) => AD_LABEL.test(t) || AD_PHRASE.test(t))?.textContent.trim();
 
   // Returns a description of what gave the ad away, or null.
   function detect(rule) {
@@ -68,6 +79,56 @@
     return null;
   }
 
+  function clickSkipButton(skip) {
+    let button = null;
+    for (const css of skip.buttons || []) {
+      button = [...document.querySelectorAll(css)].find(isVisible);
+      if (button) break;
+    }
+    button ??= findOverVideo((t) => SKIP_LABEL.test(t));
+    if (!button) return null;
+    (button.closest('button, [role="button"], a') || button).click();
+    return 'clicked skip button';
+  }
+
+  // The ad is part of the main video: jump ahead by what the countdown says is left.
+  function skipByTimer(skip) {
+    if (!skip.timer) return null;
+    let left = 0;
+    for (const el of document.querySelectorAll(skip.timer)) {
+      const m = el.checkVisibility() && el.textContent.match(/(\d+):(\d{2})/);
+      if (m) left = Math.max(left, Number(m[1]) * 60 + Number(m[2]));
+    }
+    const video = document.querySelector(skip.video) || document.querySelector('video');
+    if (left < 2 || !video || video.paused || !(video.currentTime > 0)) return null;
+    const jump = Math.min(left - 1, skip.maxJump);
+    video.currentTime += jump;
+    if (jump === skip.maxJump) nextSkipAt = Date.now() + 3 * SKIP_COOLDOWN_MS; // let a big seek settle
+    return `seeked ${jump}s past ad`;
+  }
+
+  // The ad is its own short clip: jump to its end so the player moves on.
+  function skipShortVideo(skip) {
+    if (!skip.shortVideo) return null;
+    for (const video of document.querySelectorAll('video')) {
+      const d = video.duration;
+      if (video.paused || !Number.isFinite(d) || d > SHORT_VIDEO_MAX_S || video.currentTime > d - 0.5) continue;
+      video.currentTime = d;
+      return `ended ${Math.round(d)}s ad clip`;
+    }
+    return null;
+  }
+
+  function trySkip(skip) {
+    const now = Date.now();
+    if (now < nextSkipAt) return;
+    const did = clickSkipButton(skip) || skipByTimer(skip) || skipShortVideo(skip);
+    if (!did) return;
+    nextSkipAt = Math.max(nextSkipAt, now + SKIP_COOLDOWN_MS);
+    skips++;
+    log(did);
+  }
+
   function report(active) {
     reported = active;
     log(active ? `ad started (${lastSignal}) -> mute` : 'ad ended -> unmute');
@@ -85,6 +146,7 @@
     if (signal) {
       lastSeen = now;
       lastSignal = signal;
+      if (settings.skip) trySkip(rule.skip);
     }
     const active = !!rule && (!!signal || now - lastSeen < HOLD_MS);
     if (active !== reported) report(active);
@@ -103,6 +165,7 @@
         running: settings.enabled && !!resolveRule(location.hostname, settings),
         active: reported,
         signal: lastSignal,
+        skips,
       });
     }
   });

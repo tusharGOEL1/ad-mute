@@ -11,6 +11,11 @@ async function main() {
     settings.enabled = e.target.checked;
     save();
   };
+  $('skip').checked = settings.skip;
+  $('skip').onchange = (e) => {
+    settings.skip = e.target.checked;
+    save();
+  };
   $('debug').checked = settings.debug;
   $('debug').onchange = (e) => {
     settings.debug = e.target.checked;
@@ -18,7 +23,7 @@ async function main() {
   };
 
   const url = URL.canParse(tab?.url) ? new URL(tab.url) : null; // tab.url is hidden on chrome:// pages
-  if (!url ||!/^https?:$/.test(url.protocol)) {
+  if (!url || !/^https?:$/.test(url.protocol)) {
     $('host').textContent = 'This page';
     $('kind').textContent = 'Not a website — nothing to mute here.';
     $('siteOn').hidden = true;
@@ -71,7 +76,8 @@ async function main() {
       el.textContent = `Ad playing — muted (${status.signal})`;
     } else {
       el.className = 'ok';
-      el.textContent = status.signal ? `Watching. Last ad: ${status.signal}` : 'Watching — no ad seen yet.';
+      const skipped = status.skips ? ` Skipped ${status.skips}×.` : '';
+      el.textContent = (status.signal ? `Watching. Last ad: ${status.signal}.` : 'Watching — no ad seen yet.') + skipped;
     }
   }
 

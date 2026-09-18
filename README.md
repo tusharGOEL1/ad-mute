@@ -1,6 +1,7 @@
 # Ad Mute
 
-Chrome extension that mutes the tab while a streaming site plays an ad and unmutes when the ad ends.
+Chrome extension that skips ads on streaming sites where it can, and otherwise mutes the tab while the ad
+plays and unmutes when it ends.
 It mutes the *tab* (like right-click → "Mute site"), so the player's own volume is never touched, and
 it never unmutes a tab you muted yourself.
 
@@ -22,6 +23,19 @@ Built in: Prime Video, JioHotstar, YouTube, Twitch. Any other site can be switch
 
 Rules live in `sites.js`.
 
+## How an ad is skipped
+
+The tab is muted the moment an ad is detected; skipping then tries to end it early (toggle in the popup).
+
+| Method | Used for | How |
+| --- | --- | --- |
+| Skip button | everywhere | A visible "Skip" / "Skip Ad" button over the video is clicked. |
+| Countdown seek | Prime Video | Reads the ad countdown and seeks the video forward by what's left (max 90s per jump). |
+| Short clip | JioHotstar on-demand, custom sites | If the ad is its own `<video>` of under 2 minutes, it's jumped to its end. |
+
+Ads stitched into a **live** stream (Hotstar cricket, Twitch) can't be skipped — there is nothing to seek
+to — so they stay muted.
+
 ## Other sites
 
 Open the site, click the extension icon, flip the site toggle and accept the permission prompt. The text
@@ -35,4 +49,5 @@ Sites change their markup. Turn on **Log detections** in the popup and watch the
 worker console (`chrome://extensions` → Ad Mute → *service worker*).
 
 - Ad plays with sound, popup says "Watching": nothing matched — add a selector in the popup or in `sites.js`.
+- Prime player hangs or lands mid-scene after a skip: turn off **Skip ads** in the popup to go back to mute-only.
 - Hotstar unmutes too early/late: the ad's length wasn't parsed from its `adName`; extend `durations` in `sites.js`.
